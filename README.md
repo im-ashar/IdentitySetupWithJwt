@@ -24,4 +24,4 @@ This repository contains a template for setting up JWT token authentication with
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/your-repo/IdentitySetupWithJwt.git
+   git clone https://github.com/im-ashar/IdentitySetupWithJwt.git
