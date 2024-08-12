@@ -1,4 +1,4 @@
-﻿using IdentitySetupWithJwt.Services.Interfaces;
+﻿using IdentitySetupWithJwt.Services;
 using IdentitySetupWithJwt.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

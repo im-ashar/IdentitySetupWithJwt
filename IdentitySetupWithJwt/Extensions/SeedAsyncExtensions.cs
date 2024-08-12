@@ -1,4 +1,4 @@
-﻿using IdentitySetupWithJwt.Services.Implementations;
+﻿using IdentitySetupWithJwt.Services;
 
 namespace IdentitySetupWithJwt.Extensions
 {
