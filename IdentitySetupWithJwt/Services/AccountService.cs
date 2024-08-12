@@ -14,9 +14,9 @@ namespace IdentitySetupWithJwt.Services;
 
 public interface IAccountService
 {
-    Task<MethodResult<JwtTokenResponseVM>> LoginAsync(LoginVM loginVM);
+    Task<MethodResult<JwtTokenResponseVM>> LoginAsync(LoginVM loginVm);
     Task<MethodResult<JwtTokenResponseVM>> RefreshTokenAsync(string accessToken, string refreshToken);
-    Task<MethodResult<RegisterVM>> RegisterAsync(RegisterVM registerVM);
+    Task<MethodResult<RegisterVM>> RegisterAsync(RegisterVM registerVm);
 }
 
 public class AccountService : IAccountService
@@ -34,14 +34,14 @@ public class AccountService : IAccountService
         _signInManager = signInManager;
     }
 
-    public async Task<MethodResult<JwtTokenResponseVM>> LoginAsync(LoginVM loginVM)
+    public async Task<MethodResult<JwtTokenResponseVM>> LoginAsync(LoginVM loginVm)
     {
-        var user = await _userManager.FindByEmailAsync(loginVM.Email);
+        var user = await _userManager.FindByEmailAsync(loginVm.Email);
         if (user == null)
         {
             return new MethodResult<JwtTokenResponseVM>.Failure("Invalid Email Or Password");
         }
-        var result = await _signInManager.CheckPasswordSignInAsync(user, loginVM.Password, false);
+        var result = await _signInManager.CheckPasswordSignInAsync(user, loginVm.Password, false);
         if (!result.Succeeded)
         {
             return new MethodResult<JwtTokenResponseVM>.Failure("Invalid Email Or Password");
@@ -52,23 +52,23 @@ public class AccountService : IAccountService
             new(ClaimTypes.Email, user.Email??""),
             new(ClaimTypes.Role, string.Join(',',roles)),
             new(ClaimTypes.Name, user.UserName ?? ""),
-            new(ClaimTypes.NameIdentifier, user.Id ?? ""),
+            new(ClaimTypes.NameIdentifier, user.Id),
         };
             
         return await CreateTokenAsync(claims, user);
     }
 
-    public async Task<MethodResult<RegisterVM>> RegisterAsync(RegisterVM registerVM)
+    public async Task<MethodResult<RegisterVM>> RegisterAsync(RegisterVM registerVm)
     {
         var user = new AppUser
         {
-            Email = registerVM.Email,
-            UserName = registerVM.Email,
-            FullName = registerVM.FullName,
+            Email = registerVm.Email,
+            UserName = registerVm.Email,
+            FullName = registerVm.FullName,
             EmailConfirmed = true,
             LockoutEnabled = false
         };
-        var result = await _userManager.CreateAsync(user, registerVM.Password);
+        var result = await _userManager.CreateAsync(user, registerVm.Password);
         if (!result.Succeeded)
         {
             return new MethodResult<RegisterVM>.Failure("Failed To Register");
@@ -78,7 +78,7 @@ public class AccountService : IAccountService
         {
             return new MethodResult<RegisterVM>.Failure("Failed To Register");
         }
-        return new MethodResult<RegisterVM>.Success(registerVM);
+        return new MethodResult<RegisterVM>.Success(registerVm);
     }
 
     public async Task<MethodResult<JwtTokenResponseVM>> RefreshTokenAsync(string accessToken, string refreshToken) =>
@@ -146,15 +146,13 @@ public class AccountService : IAccountService
         };
 
         var tokenHandler = new JwtSecurityTokenHandler();
-        SecurityToken securityToken;
-        var principal = tokenHandler.ValidateToken(accessToken, tokenValidationParameters, out securityToken);
-        var jwtSecurityToken = securityToken as JwtSecurityToken;
-        if (jwtSecurityToken == null)
+        var principal = tokenHandler.ValidateToken(accessToken, tokenValidationParameters, out var securityToken);
+        if (securityToken is not JwtSecurityToken jwtSecurityToken)
         {
             return new MethodResult<ClaimsPrincipal>.Failure("Invalid Token");
         }
 
-        if (jwtSecurityToken == null || !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha512, StringComparison.InvariantCultureIgnoreCase))
+        if (!jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha512, StringComparison.InvariantCultureIgnoreCase))
             return new MethodResult<ClaimsPrincipal>.Failure("Invalid Token");
         return new MethodResult<ClaimsPrincipal>.Success(principal);
     }
