@@ -1,11 +1,17 @@
-﻿namespace IdentitySetupWithJwt.Utilities
-{
-    public record MethodResult<TData>(bool IsSuccess, string? ErrorMessage, TData Data)
-    {
-        public static MethodResult<TData> Success(TData data) => new(true, default, data);
-        public static MethodResult<TData> Failure(string errorMessage) => new(false, errorMessage, default);
+﻿namespace IdentitySetupWithJwt.Utilities;
 
-        public static implicit operator MethodResult<TData>(TData data) => Success(data);
-        public static implicit operator MethodResult<TData>(string errorMessage) => Failure(errorMessage);
+public abstract record MethodResult<T>
+{
+    private MethodResult() { }
+    public abstract TOut Match<TOut>(Func<string, TOut> whenLeft, Func<T, TOut> whenRight);
+
+    public record Success(T Data) : MethodResult<T>
+    {
+        public override TOut Match<TOut>(Func<string, TOut> whenLeft, Func<T, TOut> whenRight) => whenRight(Data);
+    }
+
+    public record Failure(string ErrorMessage) : MethodResult<T>
+    {
+        public override TOut Match<TOut>(Func<string, TOut> whenLeft, Func<T, TOut> whenRight) => whenLeft(ErrorMessage);
     }
 }

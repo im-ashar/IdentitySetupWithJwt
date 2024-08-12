@@ -4,7 +4,6 @@ using IdentitySetupWithJwt.Services.Interfaces;
 using IdentitySetupWithJwt.Utilities;
 using IdentitySetupWithJwt.ViewModels;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -34,28 +33,23 @@ namespace IdentitySetupWithJwt.Services.Implementations
             var user = await _userManager.FindByEmailAsync(loginVM.Email);
             if (user == null)
             {
-                return "Invalid Email Or Password";
+                return new MethodResult<JwtTokenResponseVM>.Failure("Invalid Email Or Password");
             }
             var result = await _signInManager.CheckPasswordSignInAsync(user, loginVM.Password, false);
             if (!result.Succeeded)
             {
-                return "Invalid Email Or Password";
+                return new MethodResult<JwtTokenResponseVM>.Failure("Invalid Email Or Password");
             }
             var roles = (await _userManager.GetRolesAsync(user)).ToList();
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Email, user.Email??""),
-                new Claim(ClaimTypes.Role, string.Join(',',roles)),
-                new Claim(ClaimTypes.Name, user.UserName ?? ""),
-                new Claim(ClaimTypes.NameIdentifier, user.Id ?? ""),
+                new(ClaimTypes.Email, user.Email??""),
+                new(ClaimTypes.Role, string.Join(',',roles)),
+                new(ClaimTypes.Name, user.UserName ?? ""),
+                new(ClaimTypes.NameIdentifier, user.Id ?? ""),
             };
-            var jwtTokenResponse = await CreateTokenAsync(claims, user);
-            if (!jwtTokenResponse.IsSuccess)
-            {
-                return jwtTokenResponse.ErrorMessage;
-            }
-            return jwtTokenResponse.Data;
-
+            
+            return await CreateTokenAsync(claims, user);
         }
 
         public async Task<MethodResult<RegisterVM>> RegisterAsync(RegisterVM registerVM)
@@ -71,44 +65,40 @@ namespace IdentitySetupWithJwt.Services.Implementations
             var result = await _userManager.CreateAsync(user, registerVM.Password);
             if (!result.Succeeded)
             {
-                return "Failed To Register";
+                return new MethodResult<RegisterVM>.Failure("Failed To Register");
             }
-            result = await _userManager.AddToRoleAsync(user, ApplicationConstants.RolesTypes.User);
-            if (!result.Succeeded)
+            var resultRoleCreation = await _userManager.AddToRoleAsync(user, ApplicationConstants.RolesTypes.User);
+            if (!resultRoleCreation.Succeeded)
             {
-                return "Failed To Register";
+                return new MethodResult<RegisterVM>.Failure("Failed To Register");
             }
-            return registerVM;
+            return new MethodResult<RegisterVM>.Success(registerVM);
         }
 
-        public async Task<MethodResult<JwtTokenResponseVM>> RefreshTokenAsync(string accessToken, string refreshToken)
+        public async Task<MethodResult<JwtTokenResponseVM>> RefreshTokenAsync(string accessToken, string refreshToken) =>
+            await GetPrincipalFromExpiredToken(accessToken).Match<Task<MethodResult<JwtTokenResponseVM>>>(
+                l => Task.FromResult(new MethodResult<JwtTokenResponseVM>.Failure(l) as MethodResult<JwtTokenResponseVM>),
+                r => GetToken(refreshToken, r)
+            );
+
+        private async Task<MethodResult<JwtTokenResponseVM>> GetToken(string refreshToken, ClaimsPrincipal result)
         {
-            var principalResult = GetPrincipalFromExpiredToken(accessToken);
-            if (!principalResult.IsSuccess)
-            {
-                return principalResult.ErrorMessage;
-            }
-            var userId = principalResult.Data.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = result.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null)
             {
-                return "Invalid Access Token";
+                return new MethodResult<JwtTokenResponseVM>.Failure("Invalid Access Token");
             }
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null || user.RefreshToken != refreshToken)
             {
-                return "Invalid Refresh Token";
+                return new MethodResult<JwtTokenResponseVM>.Failure("Invalid Refresh Token");
             }
             if (user.RefreshTokenExpiryTime <= DateTime.UtcNow)
             {
-                return "Refresh Token Expired";
+                return new MethodResult<JwtTokenResponseVM>.Failure("Refresh Token Expired");
             }
-            var claims = principalResult.Data.Claims;
-            var result = await CreateTokenAsync(claims, user);
-            if (!result.IsSuccess)
-            {
-                return result.ErrorMessage;
-            }
-            return result.Data;
+            var claims = result.Claims;
+            return await CreateTokenAsync(claims, user);
         }
 
         private async Task<MethodResult<JwtTokenResponseVM>> CreateTokenAsync(IEnumerable<Claim> claims, AppUser user)
@@ -122,19 +112,19 @@ namespace IdentitySetupWithJwt.Services.Implementations
 
             if (!result.Succeeded)
             {
-                return "Failed To Update Refresh Token";
+                return new MethodResult<JwtTokenResponseVM>.Failure("Failed To Update Refresh Token");
             }
 
             var refreshTokenExpiryTimeStamp = DateTime.UtcNow.AddDays(_jwtConfig.RefreshTokenValidityDays);
             var accessTokenExpiryTimeStamp = DateTime.UtcNow.AddMinutes(_jwtConfig.AccessTokenValidityMin);
 
-            return new JwtTokenResponseVM
+            return new MethodResult<JwtTokenResponseVM>.Success(new JwtTokenResponseVM
             {
                 AccessToken = newAccessToken,
                 AccessTokenExpiresIn = (int)accessTokenExpiryTimeStamp.Subtract(DateTime.UtcNow).TotalSeconds,
                 RefreshToken = newRefreshToken,
                 RefreshTokenExpiresIn = (int)refreshTokenExpiryTimeStamp.Subtract(DateTime.UtcNow).TotalSeconds
-            };
+            });
         }
         private MethodResult<ClaimsPrincipal> GetPrincipalFromExpiredToken(string accessToken)
         {
@@ -156,12 +146,12 @@ namespace IdentitySetupWithJwt.Services.Implementations
             var jwtSecurityToken = securityToken as JwtSecurityToken;
             if (jwtSecurityToken == null)
             {
-                return "Invalid Token";
+                return new MethodResult<ClaimsPrincipal>.Failure("Invalid Token");
             }
 
             if (jwtSecurityToken == null || !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha512, StringComparison.InvariantCultureIgnoreCase))
-                return "Invalid Token";
-            return principal;
+                return new MethodResult<ClaimsPrincipal>.Failure("Invalid Token");
+            return new MethodResult<ClaimsPrincipal>.Success(principal);
         }
         private string GenerateRefreshToken()
         {
