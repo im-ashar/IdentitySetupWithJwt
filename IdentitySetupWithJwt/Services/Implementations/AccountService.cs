@@ -76,8 +76,7 @@ namespace IdentitySetupWithJwt.Services.Implementations
         }
 
         public async Task<MethodResult<JwtTokenResponseVM>> RefreshTokenAsync(string accessToken, string refreshToken) =>
-            await GetPrincipalFromExpiredToken(accessToken).Match<Task<MethodResult<JwtTokenResponseVM>>>(
-                l => Task.FromResult(new MethodResult<JwtTokenResponseVM>.Failure(l) as MethodResult<JwtTokenResponseVM>),
+            await GetPrincipalFromExpiredToken(accessToken).Bind(
                 r => GetToken(refreshToken, r)
             );
 
