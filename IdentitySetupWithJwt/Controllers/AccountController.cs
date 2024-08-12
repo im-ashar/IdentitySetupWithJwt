@@ -1,9 +1,7 @@
-﻿using IdentitySetupWithJwt.Services.Interfaces;
+﻿using IdentitySetupWithJwt.Services;
 using IdentitySetupWithJwt.ViewModels;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace IdentitySetupWithJwt.Controllers
 {
@@ -19,15 +17,13 @@ namespace IdentitySetupWithJwt.Controllers
         }
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> GetRefreshToken(string accessToken, string refreshToken)
-        {
-            var result = await accountService.RefreshTokenAsync(accessToken, refreshToken);
-            if (!result.IsSuccess)
-            {
-                return Problem(detail: result.ErrorMessage, statusCode: StatusCodes.Status401Unauthorized);
-            }
-            return Ok(result.Data);
-        }
+        public async Task<IActionResult> GetRefreshToken(string accessToken, string refreshToken) =>
+            (await accountService.RefreshTokenAsync(accessToken, refreshToken))
+            .Match(
+                l => Problem(detail: l, statusCode: StatusCodes.Status401Unauthorized),
+                Ok
+            );
+
         [HttpPost]
         [AllowAnonymous]
         public async Task<IActionResult> Login(LoginVM loginVM)
@@ -38,11 +34,10 @@ namespace IdentitySetupWithJwt.Controllers
                 return BadRequest(errors);
             }
             var result = await accountService.LoginAsync(loginVM);
-            if (!result.IsSuccess)
-            {
-                return Problem(detail: result.ErrorMessage, statusCode: StatusCodes.Status401Unauthorized);
-            }
-            return Ok(result.Data);
+            return result.Match(
+                l => Problem(detail: l, statusCode: StatusCodes.Status401Unauthorized),
+                Ok
+            );
         }
         [HttpPost]
         [AllowAnonymous]
@@ -54,11 +49,10 @@ namespace IdentitySetupWithJwt.Controllers
                 return BadRequest(errors);
             }
             var result = await accountService.RegisterAsync(registerVM);
-            if (!result.IsSuccess)
-            {
-                return Problem(detail: result.ErrorMessage, statusCode: StatusCodes.Status400BadRequest);
-            }
-            return Ok(result.Data);
+            return result.Match(
+                l => Problem(detail: l, statusCode: StatusCodes.Status400BadRequest),
+                Ok
+            );
         }
     }
 }
