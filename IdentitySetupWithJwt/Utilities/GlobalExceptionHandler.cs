@@ -24,7 +24,7 @@ namespace IdentitySetupWithJwt.Utilities
             {
                 Status = StatusCodes.Status500InternalServerError,
                 Title = "Server Error",
-                Detail = exception.Message,
+                Detail = $"Something Went Wrong. Please Reach Out To Us With Support Id: {httpContext.TraceIdentifier}",
             };
 
             httpContext.Response.StatusCode = problemDetails.Status.Value;
