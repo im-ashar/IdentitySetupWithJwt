@@ -29,9 +29,8 @@ This repository contains a template for setting up JWT token authentication with
 
 2. **Import the Template:**
    - Download the `IdentitySetupWithJwt.zip` file from the repository.
-   - Open Visual Studio 2022.
-   - Go to **Project** > **Import Template**.
-   - Select the downloaded `IdentitySetupWithJwt.zip` file and follow the prompts to import the template.
+   - Copy and paste .zip file in the location "C:\Users\{YOUR_USERNAME}\Documents\Visual Studio 2022\Templates\ProjectTemplates".
+   - Now you will be able to see the template in the **Create New Project** menu.
 
 3. **Create a New Project:**
    - In Visual Studio 2022, create a new project using the imported template.
